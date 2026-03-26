@@ -8,26 +8,28 @@ import quizRoutes from "./src/routes/quizRoutes.js";
 dotenv.config();
 
 const app = express();
+
+// logging middleware
 app.use((req, res, next) => {
-  console.log(" Request hit:", req.method, req.url);
+  console.log("Request hit:", req.method, req.url);
   next();
 });
+
 // connect DB
 connectDB();
-// use cors
-app.use(cors());
-// middleware
-app.use(express.json());
-// quiz routes
-app.use("/api/quiz", quizRoutes);
 
-//  ADD THIS
+// middleware
+app.use(cors());
+app.use(express.json());
+
+// routes
+app.use("/api/quiz", quizRoutes);
+app.use("/api/auth", authRoutes);
+
+// root route
 app.get("/", (req, res) => {
   res.send("API is running...");
 });
-
-// routes
-app.use("/api/auth", authRoutes);
 
 // start server
 const PORT = process.env.PORT || 8000;
