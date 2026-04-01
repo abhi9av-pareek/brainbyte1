@@ -1,8 +1,10 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import axios from "axios";
+import { Eye, EyeOff } from "lucide-react";
 
 function LoginModern() {
+  const [showPassword, setShowPassword] = useState(false);
   const navigate = useNavigate();
 
   const [formData, setFormData] = useState({
@@ -26,7 +28,6 @@ function LoginModern() {
       // store token
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data));
-
       // redirect
       navigate("/dashboard");
     } catch (error) {
@@ -65,14 +66,25 @@ function LoginModern() {
             />
 
             {/* PASSWORD */}
-            <input
-              type="password"
-              name="password"
-              value={formData.password}
-              onChange={handleChange}
-              placeholder="Enter your password"
-              className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 w-full"
-            />
+            <div className="relative">
+              {/* INPUT */}
+              <input
+                type={showPassword ? "text" : "password"} // ✅ THIS IS THE KEY
+                name="password"
+                value={formData.password}
+                onChange={handleChange}
+                placeholder="Enter your password"
+                className="bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 w-full pr-10"
+              />
+
+              {/* ICON */}
+              <div
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 cursor-pointer"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </div>
+            </div>
           </div>
 
           <button

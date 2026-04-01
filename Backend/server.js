@@ -26,7 +26,6 @@ app.get("/", (req, res) => {
 // routes
 app.use("/api/auth", authRoutes);
 
-// console.log(process.env.JWT_SECRET);
 // start server
 const PORT = process.env.PORT || 8000;
 

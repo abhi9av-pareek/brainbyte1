@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+
+import { Link, useNavigate } from "react-router-dom";
 import axios from "axios";
 import {
   Mail,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 
 function Signup() {
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -39,7 +41,11 @@ function Signup() {
 
       console.log("Signup success:", res.data);
 
-      alert("Signup successful");
+      //  ADD THIS (you missed it earlier)
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data));
+
+      navigate("/dashboard");
     } catch (error) {
       console.log("Signup error:", error.response?.data);
       alert(error.response?.data?.message || "Signup failed");
