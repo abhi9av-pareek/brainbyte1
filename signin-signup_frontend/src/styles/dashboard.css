@@ -1,0 +1,50 @@
+@import url("https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap");
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bb-bg: #0a0b0f;
+    --bb-surface: #111318;
+    --bb-border: rgba(255, 255, 255, 0.07);
+    --bb-accent: #7c5cfc;
+    --bb-accent2: #00e5c0;
+    --bb-text: #f0eff8;
+    --bb-muted: #7b7a8c;
+}
+
+.bb-root {
+    font-family: "DM Sans", sans-serif;
+    background: var(--bb-bg);
+    color: var(--bb-text);
+    min-height: 100vh;
+}
+
+/* NAV */
+.bb-nav {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 2rem;
+    border-bottom: 1px solid var(--bb-border);
+}
+
+.bb-logo {
+    font-family: "Syne", sans-serif;
+    font-weight: 800;
+    font-size: 22px;
+}
+
+/* BUTTON */
+.bb-btn {
+    padding: 12px 24px;
+    border-radius: 12px;
+    cursor: pointer;
+}
+
+.bb-btn-primary {
+    background: var(--bb-accent);
+    color: #fff;
+}

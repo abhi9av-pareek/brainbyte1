@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginModern from "./components/LoginModern";
 import Signup from "./components/Signup";
 import Dashboard from "./components/Dashboard";
+import QuizSetup from "./components/QuizSetup";
 
 function App() {
   return (
@@ -9,7 +10,8 @@ function App() {
       <Routes>
         <Route path="/" element={<LoginModern />} />
         <Route path="/signup" element={<Signup />} />
-        <Route path="/Dashboard" element={<Dashboard />} />
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/QuizSetup" element={<QuizSetup />} />;
       </Routes>
     </BrowserRouter>
   );
