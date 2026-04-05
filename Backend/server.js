@@ -3,6 +3,7 @@ import express from "express";
 import dotenv from "dotenv";
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/authRoutes.js";
+import quizRoutes from "./src/routes/quizRoutes.js";
 
 dotenv.config();
 
@@ -17,6 +18,8 @@ connectDB();
 app.use(cors());
 // middleware
 app.use(express.json());
+// quiz routes
+app.use("/api/quiz", quizRoutes);
 
 //  ADD THIS
 app.get("/", (req, res) => {
