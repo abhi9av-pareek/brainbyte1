@@ -3,31 +3,30 @@ import mongoose from "mongoose";
 /* ── Bookmark sub-schema ── */
 const bookmarkSchema = new mongoose.Schema(
   {
-    questionId: { type: String }, // reference to question
-    subject: { type: String }, // e.g. "Mathematics"
-    topic: { type: String }, // e.g. "Quadratic Equations"
-    questionText: { type: String }, // actual question text
-    notes: { type: String, default: "" }, // user's own notes
+    questionId: { type: String },
+    subject: { type: String },
+    topic: { type: String },
+    questionText: { type: String },
+    notes: { type: String, default: "" },
   },
-  { timestamps: true }, // createdAt tells when bookmarked
+  { timestamps: true }
 );
 
 /* ── Weak topic sub-schema ── */
 const weakTopicSchema = new mongoose.Schema(
   {
-    subject: { type: String, required: true }, // e.g. "Physics"
-    topic: { type: String, required: true }, // e.g. "Electromagnetism"
-    avgScore: { type: Number, default: 0 }, // 0–100, recalculated after each quiz
-    attempts: { type: Number, default: 0 }, // how many times attempted
-    suggestion: { type: String, default: "" }, // e.g. "Revise Faraday's Law"
+    subject: { type: String, required: true },
+    topic: { type: String, required: true },
+    avgScore: { type: Number, default: 0 },
+    attempts: { type: Number, default: 0 },
+    suggestion: { type: String, default: "" },
   },
-  { _id: false }, // no separate _id needed
+  { _id: false }
 );
 
 /* ── Main user schema ── */
 const userSchema = new mongoose.Schema(
   {
-    /* ── EXISTING FIELDS (unchanged) ── */
     name: {
       type: String,
       required: true,
@@ -57,38 +56,38 @@ const userSchema = new mongoose.Schema(
     /* ── XP & STREAK ── */
     xp: {
       type: Number,
-      default: 0, // starts at 0, increases after each quiz
+      default: 0,
     },
     streak: {
       type: Number,
-      default: 0, // number of consecutive active days
+      default: 0,
     },
     lastActiveDate: {
       type: Date,
-      default: null, // updated every time user submits a quiz
+      default: null,
     },
 
-    /* ── ACCURACY (rolling average) ── */
+    /* ── ACCURACY ── */
     totalQuestionsAttempted: {
       type: Number,
-      default: 0, // cumulative questions answered
+      default: 0,
     },
     totalCorrect: {
       type: Number,
-      default: 0, // cumulative correct answers
+      default: 0,
     },
 
     /* ── RANK ── */
     rank: {
       type: Number,
-      default: null, // calculated server-side by sorting all users by XP
+      default: null,
     },
 
     /* ── USER PREFERENCES ── */
     preferences: {
       subjects: {
         type: [String],
-        default: [], // e.g. ["Mathematics", "Physics", "Biology"]
+        default: [],
       },
       defaultDifficulty: {
         type: String,
@@ -100,30 +99,29 @@ const userSchema = new mongoose.Schema(
     /* ── WEAK TOPICS ── */
     weakTopics: {
       type: [weakTopicSchema],
-      default: [], // populated/updated after each quiz result
+      default: [],
     },
 
     /* ── BOOKMARKS ── */
     bookmarks: {
       type: [bookmarkSchema],
-      default: [], // user bookmarks questions during/after quiz
+      default: [],
     },
   },
   {
-    timestamps: true, // createdAt, updatedAt (existing)
-  },
+    timestamps: true,
+  }
 );
 
-/* ── VIRTUAL: accuracy percentage ──
-   Computed on the fly from totalCorrect / totalQuestionsAttempted
-   No need to store separately — always stays in sync               */
+/* ── VIRTUAL: accuracy ── */
 userSchema.virtual("accuracy").get(function () {
   if (this.totalQuestionsAttempted === 0) return 0;
-  return Math.round((this.totalCorrect / this.totalQuestionsAttempted) * 100);
+  return Math.round(
+    (this.totalCorrect / this.totalQuestionsAttempted) * 100
+  );
 });
 
-/* ── VIRTUAL: XP level label ──
-   Gives the user a title based on XP range                        */
+/* ── VIRTUAL: level ── */
 userSchema.virtual("level").get(function () {
   if (this.xp >= 10000) return "Legend";
   if (this.xp >= 5000) return "Expert";
@@ -132,13 +130,6 @@ userSchema.virtual("level").get(function () {
   return "Newcomer";
 });
 
-/* ── XP RULES (reference for quizController.js) ──
-   Score 90–100%  → +100 XP
-   Score 75–89%   → +75  XP
-   Score 60–74%   → +50  XP
-   Score 40–59%   → +30  XP
-   Score below 40%→ +10  XP
-   Streak bonus   → +20  XP per active day                         */
-
 const User = mongoose.models.User || mongoose.model("User", userSchema);
+
 export default User;

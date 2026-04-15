@@ -1,7 +1,7 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginModern from "./components/LoginModern";
 import Signup from "./components/Signup";
-import Dashboard from "./components/dashboard";
+import Dashboard from "./components/Dashboard";
 import QuizSetup from "./components/QuizSetup";
 import Quiz from "./components/Quiz";
 import ResultsHistory from "./components/ResultsHistory";
