@@ -21,3 +21,6 @@ build/
 # IDE files
 .vscode/
 .idea/
+.env
+.env.local
+.env.production

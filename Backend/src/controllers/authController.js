@@ -1,4 +1,4 @@
-import User from "../models/User.js";
+import User from "../Models/user.js";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcrypt";
 
@@ -36,12 +36,18 @@ export const registerUser = async (req, res) => {
       educationLevel,
     });
 
+    // 🎯 ADD THIS BLOCK
+    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "7d",
+    });
+
     res.status(201).json({
       _id: user._id,
       name: user.name,
       email: user.email,
       contactNumber: user.contactNumber,
       educationLevel: user.educationLevel,
+      token, // ✅ THIS FIXES EVERYTHING
     });
   } catch (error) {
     console.error("REGISTER ERROR:", error);

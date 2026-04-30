@@ -1,13 +1,12 @@
+import dotenv from "dotenv";
+const app = express();
+
 import cors from "cors";
 import express from "express";
-import dotenv from "dotenv";
 import connectDB from "./src/config/db.js";
 import authRoutes from "./src/routes/authRoutes.js";
 import quizRoutes from "./src/routes/quizRoutes.js";
-
 dotenv.config();
-
-const app = express();
 
 // logging middleware
 app.use((req, res, next) => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
+import axiosInstance from "../utils/axiosConfig"; // ✅ use axios so interceptor attaches token
 
 /* ─── CSS (converted from brainbyte_mcq_quiz.html) ─── */
 const css = `
@@ -128,7 +129,29 @@ const css = `
 `;
 
 const LETTERS = ["A", "B", "C", "D"];
-const CIRCUMFERENCE = 2 * Math.PI * 26; // r=26 → 163.36
+const CIRCUMFERENCE = 2 * Math.PI * 26;
+
+/* ════════════════════════════════════════════════════════
+   HELPER — safely read token from localStorage
+   Handles cases where token was accidentally stored as
+   JSON string e.g. '"eyJ..."' (with extra quotes)
+════════════════════════════════════════════════════════ */
+const getToken = () => {
+  const raw = localStorage.getItem("token");
+  if (!raw) return null;
+  // If someone accidentally stored it JSON-encoded, unwrap it
+  try {
+    const parsed = JSON.parse(raw);
+    // parsed will be a plain string if it was double-encoded
+    if (typeof parsed === "string") return parsed;
+    // or an object with a token field
+    if (parsed?.token) return parsed.token;
+    if (parsed?.accessToken) return parsed.accessToken;
+  } catch {
+    // raw is already a plain JWT string — this is the happy path
+  }
+  return raw;
+};
 
 /* ════════════════════════════════════════════════════════
    QUIZ COMPONENT
@@ -137,7 +160,6 @@ export default function Quiz() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* ── quiz config passed from QuizSetup via navigate state ── */
   const config = location.state || {};
   const {
     subject,
@@ -147,23 +169,21 @@ export default function Quiz() {
     options: quizOptions = {},
   } = config;
 
-  /* ── state ── */
-  const [loadingState, setLoadingState] = useState("loading"); // loading | error | ready
+  const [loadingState, setLoadingState] = useState("loading");
   const [questions, setQuestions] = useState([]);
   const [currentIdx, setCurrentIdx] = useState(0);
-  const [answered, setAnswered] = useState({}); // { idx: { chosen, correct, timeTaken } }
-  const [skipped, setSkipped] = useState({}); // { idx: true }
-  const [bookmarked, setBookmarked] = useState({}); // { idx: true }
+  const [answered, setAnswered] = useState({});
+  const [skipped, setSkipped] = useState({});
+  const [bookmarked, setBookmarked] = useState({});
   const [showMap, setShowMap] = useState(false);
-  const [feedback, setFeedback] = useState(null); // { correct, explanation } | null
+  const [feedback, setFeedback] = useState(null);
   const [timeLeft, setTimeLeft] = useState(timePerQuestion);
   const [submitting, setSubmitting] = useState(false);
 
   const timerRef = useRef(null);
-  const startTimeRef = useRef(Date.now()); // track time per question
-  const totalStartRef = useRef(Date.now()); // track total quiz time
+  const startTimeRef = useRef(Date.now());
+  const totalStartRef = useRef(Date.now());
 
-  /* ── derived stats ── */
   const totalQ = questions.length;
   const correctCount = Object.values(answered).filter((a) => a.correct).length;
   const wrongCount = Object.values(answered).filter((a) => !a.correct).length;
@@ -178,38 +198,37 @@ export default function Quiz() {
 
   const currentQ = questions[currentIdx];
 
-  /* ════════════ FETCH QUESTIONS FROM BACKEND ════════════ */
+  /* ════════════ FETCH QUESTIONS ════════════
+     ✅ Use axiosInstance — the request interceptor automatically
+        reads token from localStorage and sets Authorization header.
+        No manual token handling needed here.
+  ═══════════════════════════════════════════ */
   useEffect(() => {
     const fetchQuestions = async () => {
       try {
-        const token = localStorage.getItem("token");
-        if (!token) {
-          navigate("/login");
+        // ✅ Guard: verify token exists and looks like a JWT before requesting
+        const token = getToken();
+        if (!token || token === "undefined" || token === "null") {
+          console.error("No valid token found, redirecting to login");
+          navigate("/");
           return;
         }
 
         const subjects = Array.isArray(subject) ? subject : [subject];
 
-        const res = await fetch("/api/quiz/generate-questions", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            subjects,
-            difficulty,
-            count: questionCount,
-          }),
+        // ✅ axiosInstance already has baseURL + Authorization interceptor
+        const res = await axiosInstance.post("/api/quiz/generate-questions", {
+          subjects,
+          difficulty,
+          count: questionCount,
         });
 
-        const data = await res.json();
+        const data = res.data;
 
         if (!data.success || !data.questions?.length) {
           throw new Error(data.message || "No questions returned");
         }
 
-        /* shuffle if option enabled */
         let qs = data.questions;
         if (quizOptions.shuffle) {
           qs = [...qs].sort(() => Math.random() - 0.5);
@@ -220,6 +239,16 @@ export default function Quiz() {
         totalStartRef.current = Date.now();
       } catch (err) {
         console.error("fetchQuestions error:", err);
+
+        // ✅ If 401, token is bad — clear storage and redirect to login
+        if (err.response?.status === 401) {
+          console.error("Token rejected by server — clearing and redirecting");
+          localStorage.removeItem("token");
+          localStorage.removeItem("user");
+          navigate("/");
+          return;
+        }
+
         setLoadingState("error");
       }
     };
@@ -242,18 +271,16 @@ export default function Quiz() {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           stopTimer();
-          /* auto-skip when timer hits 0 */
           setSkipped((s) => {
             if (!s[currentIdx]) {
               return { ...s, [currentIdx]: true };
             }
             return s;
           });
-          /* move to next after short delay */
           setTimeout(() => {
             setCurrentIdx((idx) => {
               if (idx < questions.length - 1) return idx + 1;
-              return idx; // last question — stay, user can finish
+              return idx;
             });
             setFeedback(null);
           }, 700);
@@ -264,7 +291,6 @@ export default function Quiz() {
     }, 1000);
   }, [currentIdx, questions.length, stopTimer, timePerQuestion]);
 
-  /* start timer whenever question changes and it hasn't been answered yet */
   useEffect(() => {
     if (loadingState !== "ready" || !currentQ) return;
     if (answered[currentIdx] || skipped[currentIdx]) {
@@ -275,7 +301,6 @@ export default function Quiz() {
     return () => stopTimer();
   }, [currentIdx, loadingState]);
 
-  /* cleanup on unmount */
   useEffect(() => () => stopTimer(), []);
 
   /* ════════════ ANSWER SELECTION ════════════ */
@@ -302,7 +327,6 @@ export default function Quiz() {
       },
     }));
 
-    /* show feedback */
     if (quizOptions.instantFeedback !== false) {
       setFeedback({ correct, explanation: currentQ.explanation });
     } else if (correct) {
@@ -347,12 +371,10 @@ export default function Quiz() {
     setSubmitting(true);
 
     try {
-      const token = localStorage.getItem("token");
       const totalTimeTaken = Math.round(
         (Date.now() - totalStartRef.current) / 1000,
       );
 
-      /* build question results array for backend */
       const questionResults = questions.map((q, i) => ({
         questionText: q.question,
         options: q.options,
@@ -364,26 +386,19 @@ export default function Quiz() {
         isBookmarked: !!bookmarked[i],
       }));
 
-      const res = await fetch("/api/quiz/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          subject: Array.isArray(subject) ? subject.join(", ") : subject,
-          difficulty,
-          totalQuestions: totalQ,
-          timePerQuestion,
-          options: quizOptions,
-          questions: questionResults,
-          timeTakenTotal: totalTimeTaken,
-        }),
+      // ✅ Use axiosInstance here too — consistent token handling
+      const res = await axiosInstance.post("/api/quiz/submit", {
+        subject: Array.isArray(subject) ? subject.join(", ") : subject,
+        difficulty,
+        totalQuestions: totalQ,
+        timePerQuestion,
+        options: quizOptions,
+        questions: questionResults,
+        timeTakenTotal: totalTimeTaken,
       });
 
-      const data = await res.json();
+      const data = res.data;
 
-      /* navigate to results page with full data */
       navigate("/results", {
         state: {
           result: data.result,
@@ -408,7 +423,6 @@ export default function Quiz() {
         ? "#FFB347"
         : "#FF6B6B";
 
-  /* ════════════ OPTION CLASS ════════════ */
   const getOptionClass = (optIdx) => {
     const ans = answered[currentIdx];
     if (!ans) return "";
@@ -429,8 +443,9 @@ export default function Quiz() {
             <div className="qz-spinner" />
             <div className="qz-loading-title">Generating your quiz...</div>
             <div className="qz-loading-sub">
-              AI is crafting {questionCount} {difficulty} questions on{" "}
-              {Array.isArray(subject) ? subject.join(", ") : subject}
+              Brain-byte is crafting {questionCount} {difficulty} questions on-
+              {Array.isArray(subject) ? subject.join(", ") : subject}, it can
+              take some time
             </div>
           </div>
         </div>
@@ -473,7 +488,6 @@ export default function Quiz() {
     <>
       <style>{css}</style>
 
-      {/* SUBMITTING OVERLAY */}
       {submitting && (
         <div className="qz-overlay">
           <div className="qz-spinner" />
@@ -693,7 +707,6 @@ export default function Quiz() {
               </button>
             </div>
 
-            {/* show Finish on last question or when all done */}
             {isLastQuestion || allDone ? (
               <button className="qz-finish-btn" onClick={handleFinish}>
                 ⚡ Finish Quiz

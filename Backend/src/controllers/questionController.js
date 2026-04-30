@@ -1,5 +1,6 @@
-const OLLAMA_URL = "http://localhost:11434/api/generate";
-const OLLAMA_MODEL = "llama3";
+import fetch from "node-fetch";
+const NVIDIA_API_URL = "https://integrate.api.nvidia.com/v1/chat/completions";
+const NVIDIA_MODEL = "deepseek-ai/deepseek-v4-flash";
 
 const buildPrompt = (subjects, difficulty, count, timePerQuestion) => {
   const subjectList = Array.isArray(subjects) ? subjects.join(", ") : subjects;
@@ -9,42 +10,53 @@ const buildPrompt = (subjects, difficulty, count, timePerQuestion) => {
     Hard: "advanced analysis, edge cases, exam-level problem solving",
   };
 
-  return `You are an AI quiz generator.
-  Generate a high-quality quiz based on these requirements:
+  return `You are a strict JSON generator.
+
+  You MUST follow all instructions exactly.
+  You MUST return ONLY valid JSON.
+  You MUST NOT include any text outside JSON.
+
+  TASK:
+  Generate a quiz with the following:
 
   Subject: ${subjectList}
   Difficulty: ${difficulty} — ${difficultyGuide[difficulty] || difficultyGuide.Medium}
   Number of Questions: ${count}
   Time Per Question: ${timePerQuestion} seconds
 
-  RULES:
-  1. Generate EXACTLY ${count} questions
-  2. Distribute questions evenly across all subjects if multiple
-  3. Each question must have exactly 4 options
-  4. correctAnswer must be exactly "A", "B", "C", or "D"
-  5. Include a specific topic and brief explanation for each question
-  6. Match difficulty strictly
+  STRICT RULES:
+  - EXACTLY ${count} questions
+  - EACH question has EXACTLY 4 options
+  - correctAnswer MUST be one of: "A", "B", "C", "D"
+  - Include subject and topic for every question
+  - Include explanation
+  - NO markdown
+  - NO backticks
+  - NO text before or after JSON
 
-  Return ONLY this JSON, no extra text, no markdown:
+  OUTPUT FORMAT:
   {
     "quiz": [
       {
         "subject": "subject name",
         "topic": "specific sub-topic",
         "question": "question text",
-        "options": ["option A text", "option B text", "option C text", "option D text"],
+        "options": ["A", "B", "C", "D"],
         "correctAnswer": "A",
-        "explanation": "why this answer is correct"
+        "explanation": "..."
       }
     ]
   }
 
+  FINAL WARNING:
+  If you output anything outside JSON, the system will FAIL.
   IMPORTANT:
-  - Output MUST start with { and end with }
-  - Do NOT write "Here is your quiz"
-  - Do NOT add any explanation before or after JSON
-  - Do NOT use markdown or backticks
-  - Return strictly valid JSON only`;
+    - Output MUST start with { and end with }
+    - Do NOT write "Here is your quiz"
+    - Do NOT add any explanation before or after JSON
+    - Do NOT use markdown or backticks
+    - Return strictly valid JSON only
+  Return JSON now.`;
 };
 
 const letterToIndex = (letter) => {
@@ -52,72 +64,100 @@ const letterToIndex = (letter) => {
   return map[String(letter).toUpperCase().trim()] ?? 0;
 };
 
-const callOllama = async (prompt) => {
-  let response;
-  try {
-    response = await fetch(OLLAMA_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: OLLAMA_MODEL,
-        prompt: prompt,
-        stream: false,
-        options: { temperature: 0.7, num_predict: 8192 },
-      }),
-    });
-  } catch (err) {
-    throw new Error("Cannot connect to Ollama. Run: ollama serve");
-  }
+const callDeepSeek = async (prompt) => {
+  const MAX_RETRIES = 3;
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Ollama error ${response.status}: ${errText}`);
-  }
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    let response;
 
-  const data = await response.json();
-  const rawText = data?.response;
-  if (!rawText) throw new Error("Ollama returned empty response");
+    try {
+      response = await fetch(NVIDIA_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${process.env.NVIDIA_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: NVIDIA_MODEL,
+          messages: [{ role: "user", content: prompt }],
+          temperature: 0.3, // 🔥 lower = more stable JSON
+          max_tokens: 2000,
+        }),
+      });
+    } catch (err) {
+      if (attempt === MAX_RETRIES) {
+        throw new Error("Cannot connect to NVIDIA API");
+      }
+      continue;
+    }
 
-  console.log("Raw Ollama response (first 300 chars):", rawText.slice(0, 300));
+    if (!response.ok) {
+      const errText = await response.text();
+      if (attempt === MAX_RETRIES) {
+        throw new Error(`NVIDIA API error ${response.status}: ${errText}`);
+      }
+      continue;
+    }
 
-  let cleaned = rawText
-    .replace(/```json/gi, "")
-    .replace(/```/g, "")
-    .trim();
+    const data = await response.json();
+    const rawText = data?.choices?.[0]?.message?.content;
 
-  //remove anything before first {
-  const firstBrace = cleaned.indexOf("{");
-  if (firstBrace !== -1) {
-    cleaned = cleaned.slice(firstBrace);
-  }
+    if (!rawText) {
+      if (attempt === MAX_RETRIES) {
+        throw new Error("DeepSeek returned empty response");
+      }
+      continue;
+    }
 
-  //remove anything after last }
-  const lastBrace = cleaned.lastIndexOf("}");
-  if (lastBrace !== -1) {
-    cleaned = cleaned.slice(0, lastBrace + 1);
-  }
+    console.log(
+      `Attempt ${attempt} - Raw response (first 200 chars):`,
+      rawText.slice(0, 200),
+    );
 
-  let parsed;
-  try {
-    parsed = JSON.parse(cleaned);
-  } catch {
-    const match = cleaned.match(/\{[\s\S]*\}/);
-    if (match) {
-      parsed = JSON.parse(match[0]);
-    } else {
-      console.error("Full raw response:", rawText);
-      throw new Error("Could not parse Ollama response as JSON");
+    try {
+      // 🔥 CLEANING PHASE
+      let cleaned = rawText
+        .replace(/```json/gi, "")
+        .replace(/```/g, "")
+        .replace(/\u0000/g, "") // remove null chars
+        .trim();
+
+      // cut from first {
+      const firstBrace = cleaned.indexOf("{");
+      if (firstBrace !== -1) {
+        cleaned = cleaned.slice(firstBrace);
+      }
+
+      // cut till last }
+      const lastBrace = cleaned.lastIndexOf("}");
+      if (lastBrace !== -1) {
+        cleaned = cleaned.slice(0, lastBrace + 1);
+      }
+
+      // 🔥 FIX common JSON issues
+      cleaned = cleaned
+        .replace(/,\s*}/g, "}") // trailing commas
+        .replace(/,\s*]/g, "]");
+
+      const parsed = JSON.parse(cleaned);
+
+      const questions = Array.isArray(parsed) ? parsed : parsed?.quiz;
+
+      if (!Array.isArray(questions) || questions.length === 0) {
+        throw new Error("No questions found");
+      }
+
+      return questions;
+    } catch (parseError) {
+      console.warn(`Attempt ${attempt} failed to parse JSON`);
+
+      if (attempt === MAX_RETRIES) {
+        console.error("Final raw response:", rawText);
+        throw new Error("Could not parse DeepSeek response as JSON");
+      }
     }
   }
-
-  const questions = Array.isArray(parsed) ? parsed : parsed?.quiz;
-  if (!Array.isArray(questions) || questions.length === 0) {
-    throw new Error("No questions found in Ollama response");
-  }
-
-  return questions;
 };
-
 const sanitizeQuestion = (q, index) => {
   if (
     typeof q.question !== "string" ||
@@ -153,7 +193,7 @@ export const generateQuestions = async (req, res) => {
       });
     }
 
-    const safeCount = Math.min(Math.max(Number(count), 5), 50);
+    const safeCount = Math.min(Math.max(Number(count), 5), 20);
     const safeDifficulty = ["Easy", "Medium", "Hard"].includes(difficulty)
       ? difficulty
       : "Medium";
@@ -169,7 +209,9 @@ export const generateQuestions = async (req, res) => {
       safeCount,
       timePerQuestion,
     );
-    const rawQuestions = await callOllama(prompt);
+
+    const rawQuestions = await callDeepSeek(prompt);
+
     const questions = rawQuestions
       .slice(0, safeCount)
       .map((q, i) => sanitizeQuestion(q, i));
@@ -183,7 +225,7 @@ export const generateQuestions = async (req, res) => {
         subjects: Array.isArray(subjects) ? subjects : [subjects],
         difficulty: safeDifficulty,
         count: questions.length,
-        model: OLLAMA_MODEL,
+        model: NVIDIA_MODEL,
         generatedAt: new Date().toISOString(),
       },
     });
@@ -191,8 +233,8 @@ export const generateQuestions = async (req, res) => {
     console.error("generateQuestions error:", error.message);
     res.status(500).json({
       success: false,
-      message: error.message.includes("Cannot connect to Ollama")
-        ? "Ollama is not running. Start it with: ollama serve"
+      message: error.message.includes("Cannot connect")
+        ? "NVIDIA API is not reachable"
         : "Failed to generate questions",
       error: error.message,
     });

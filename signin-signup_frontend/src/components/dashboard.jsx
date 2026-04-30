@@ -237,38 +237,7 @@ const formatTimeAgo = (dateStr) => {
 };
 
 /* ─── Static leaderboard top 3 (replace with real API later) ─── */
-const TOP3 = [
-  {
-    rank: "1",
-    rankCls: "gold",
-    initials: "PK",
-    avatarStyle: { background: "rgba(255,215,0,0.15)", color: "#FFD700" },
-    name: "Priya K.",
-    subjects: "Biology, Math",
-    pts: "9,240",
-    isYou: false,
-  },
-  {
-    rank: "2",
-    rankCls: "silver",
-    initials: "RS",
-    avatarStyle: { background: "rgba(192,192,192,0.15)", color: "#C0C0C0" },
-    name: "Rohan S.",
-    subjects: "Physics, CS",
-    pts: "8,890",
-    isYou: false,
-  },
-  {
-    rank: "3",
-    rankCls: "bronze",
-    initials: "NM",
-    avatarStyle: { background: "rgba(205,127,50,0.15)", color: "#CD7F32" },
-    name: "Neha M.",
-    subjects: "Chemistry",
-    pts: "8,120",
-    isYou: false,
-  },
-];
+const TOP3 = [];
 
 /* ════════════════════════════════════════════════
    DASHBOARD COMPONENT
@@ -372,28 +341,35 @@ function Dashboard() {
       <style>{css}</style>
       <div className="bb-root">
         {/* NAV */}
+        {/* NAV */}
         <nav className="bb-nav">
           <div className="bb-logo">
             <div className="bb-logo-icon">🧠</div>
             Brain<span>Byte</span>
           </div>
+
           <ul className="bb-nav-links">
             <li>
-              <a className="active">Dashboard</a>
-            </li>
-            <li>
-              <a>Practice</a>
-            </li>
-            <li>
-              <a>Results</a>
-            </li>
-            <li>
-              <a>Analytics</a>
+              <a
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  alert("Analytics dashboard is cooking… coming soon!");
+                }}
+              >
+                Analytics
+              </a>
             </li>
           </ul>
+
           <div className="bb-nav-right">
             <div className="bb-streak">🔥 {user.streak} day streak</div>
-            <div className="bb-avatar" onClick={() => setOpenProfile(true)}>
+
+            <div
+              className="bb-avatar"
+              onClick={() => setOpenProfile(true)}
+              style={{ cursor: "pointer" }}
+            >
               {user.name[0]}
             </div>
           </div>
@@ -471,10 +447,14 @@ function Dashboard() {
               </div>
               <div
                 className="bb-quick-btn"
-                onClick={() => navigate("/bookmarks")}
+                onClick={() =>
+                  alert("Bookmarks vault is under construction… coming soon!")
+                }
               >
                 <div className="qb-icon">🔖</div>
-                <div className="qb-label">Bookmarks</div>
+                <div className="qb-label" style={{ cursor: "pointer" }}>
+                  Bookmarks
+                </div>
               </div>
               <div
                 className="bb-quick-btn"
@@ -707,9 +687,20 @@ function Dashboard() {
             </p>
           </div>
           <div className="bb-sidebar-menu">
-            <div>My Profile</div>
-            <div>My Progress</div>
-            <div>Settings</div>
+            <div
+              className="profile"
+              onClick={() => alert("My Profile is cooking… coming soon!")}
+            >
+              My Profile
+            </div>
+
+            <div onClick={() => alert("Progress tracking is on the way")}>
+              My Progress
+            </div>
+
+            <div onClick={() => alert("Settings will land here soon ")}>
+              Settings
+            </div>
             <div className="logout" onClick={handleLogout}>
               Logout
             </div>
