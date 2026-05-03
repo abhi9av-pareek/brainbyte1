@@ -11,7 +11,7 @@ import {
   EyeOff,
   ArrowRight,
 } from "lucide-react";
-
+const BASE_URL = import.meta.env.VITE_API_URL;
 function Signup() {
   const navigate = useNavigate();
   const vantaRef = useRef(null);
@@ -111,10 +111,7 @@ function Signup() {
     setLoading(true);
 
     try {
-      const res = await axios.post(
-        "http://localhost:8000/api/auth/signup",
-        formData,
-      );
+      const res = await axios.post(`${BASE_URL}/api/auth/signup`, formData);
 
       console.log("Signup success:", res.data);
 
