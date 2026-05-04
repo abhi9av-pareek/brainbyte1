@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
-import axios from "axios";
+import axios from "../utils/axiosConfig";
 import { Eye, EyeOff } from "lucide-react";
 
 function LoginModern() {
