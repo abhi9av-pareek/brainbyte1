@@ -22,13 +22,14 @@ connectDB();
 // middleware
 app.use(
   cors({
-    origin: ["http://localhost:5173", "https://brainbytee.vercel.app"],
+    origin: "https://brainnbyte.netlify.app",
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
   }),
 );
-
 app.use(express.json());
-
+app.options("*", cors());
 // routes
 app.use("/api/quiz", quizRoutes);
 app.use("/api/auth", authRoutes);
