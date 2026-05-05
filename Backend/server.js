@@ -29,7 +29,7 @@ app.use(
   }),
 );
 app.use(express.json());
-app.options("*", cors());
+app.options(cors()); // to handle preflight
 // routes
 app.use("/api/quiz", quizRoutes);
 app.use("/api/auth", authRoutes);
